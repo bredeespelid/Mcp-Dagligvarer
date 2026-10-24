@@ -13,7 +13,8 @@ from .cart import Cart
 mcp = MCPServer(
     name="oda",
     instructions=(
-        "Varer, priser og oppskrifter fra Oda (oda.com). Bruk search_products og "
+        "Varer, priser, tilbud og oppskrifter fra Oda (oda.com). Bruk find_offers for "
+        "tilbud, og search_products og "
         "add_to_cart for enkeltvarer, og search_recipes, get_recipe og add_recipes for "
         "måltider. Handlekurven er lokal til checkout kalles. Med send_to_oda=true "
         "overføres den til brukerens egen Oda-kurv, der levering og betaling velges i "
@@ -37,10 +38,37 @@ def search_products(query: str, page: int = 1, only_offers: bool = False) -> dic
         page: Sidenummer, starter på 1.
         only_offers: Vis bare varer som er på tilbud.
     """
-    total, products = catalog.search_products(query, page=max(1, page))
     if only_offers:
-        products = [p for p in products if p.on_offer]
+        products = catalog.find_offers(query)
+        return {"total": len(products), "products": [p.to_dict() for p in products]}
+    total, products = catalog.search_products(query, page=max(1, page))
     return {"total": total, "page": page, "products": [p.to_dict() for p in products]}
+
+
+@mcp.tool()
+def find_offers(query: str | None = None, limit: int = 40) -> dict:
+    """Finn varer på tilbud hos Oda, sortert etter størst prosentvis rabatt.
+
+    Args:
+        query: Ett eller flere ord som må finnes i varenavnet, f.eks. 'kylling',
+            'laks torsk' eller 'kjøttdeig svin biff'. Bruk konkrete ord, siden et
+            samlebegrep som 'kjøtt' ikke treffer 'kyllingfilet'. Uten søkeord
+            vises alle tilbud.
+        limit: Maks antall tilbud i svaret.
+    """
+    offers = catalog.find_offers(query)
+
+    def saving(p: catalog.Product) -> float:
+        return 1 - p.price / p.original_price if p.original_price else 0.0
+
+    offers.sort(key=saving, reverse=True)
+    return {
+        "count": len(offers),
+        "offers": [
+            {**p.to_dict(), "saving_percent": round(saving(p) * 100) if p.original_price else None}
+            for p in offers[: max(1, limit)]
+        ],
+    }
 
 
 @mcp.tool()
@@ -106,7 +134,8 @@ def add_recipes(recipes: list[dict], include_basics: bool = False) -> dict:
         quantity = max(1, math.ceil(share - 1e-9))
         cart.add(product, quantity, used_for=used_for[pid])
         added.append({"product_id": pid, "name": product.name, "details": product.details,
-                      "price": product.price, "quantity": quantity, "for": used_for[pid]})
+                      "price": product.price, "quantity": quantity, "for": used_for[pid],
+                      "offer": product.offer})
     return {
         "recipes": titles,
         "added": added,
@@ -200,9 +229,11 @@ Hjelp brukeren med å planlegge og handle, i denne rekkefølgen:
    - hvor mange som skal spise, og om det er barn
    - allergier, ting de ikke spiser, eller vegetar
    - ønsker eller retter de har lyst på, og hvor mye tid de har til matlaging
-   - budsjett
+   - budsjett, og om de vil at rettene skal bygge på det som er på tilbud
    - om de har basisvarer som salt, pepper, olje og krydder hjemme
-2. Finn passende oppskrifter med search_recipes. Bruk gjerne flere søk, som
+2. Vil brukeren handle på tilbud, start med find_offers med konkrete råvarer
+   (f.eks. 'kylling', 'laks torsk', 'kjøttdeig svin biff') og søk etter oppskrifter med de nedsatte råvarene.
+   Finn ellers passende oppskrifter med search_recipes. Bruk gjerne flere søk, som
    «kylling», «fisk» og «vegetar», for variasjon. Foreslå én rett per måltid med
    tilberedningstid og en kort begrunnelse. La brukeren bytte ut retter, og hent nye
    forslag til de sier at menyen er god.
@@ -210,7 +241,8 @@ Hjelp brukeren med å planlegge og handle, i denne rekkefølgen:
    Sett include_basics bare hvis brukeren mangler basisvarer.
 4. Vis hva som ble lagt i kurven, gruppert per rett, med pris og totalsum. Nevn
    utilgjengelige varer og foreslå erstatninger med search_products. Spør om noe skal
-   byttes eller legges til, som frokost, drikke eller snacks.
+   byttes eller legges til, som frokost, drikke eller snacks. Pek ut varer på
+   tilbud, særlig «3 for 2» og «2 for X kr», der det lønner seg å kjøpe flere.
 5. Når brukeren er fornøyd, kall checkout. Spør før du setter send_to_oda=true, og
    forklar at levering og betaling velges i Oda-appen.
 

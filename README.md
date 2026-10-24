@@ -19,6 +19,7 @@ I Claude Code kan prompten også startes direkte med `/mcp__oda__plan_meals`.
 | Verktøy | Beskrivelse |
 |---|---|
 | `search_products` | Søk etter varer (`query`, `page`, `only_offers`) |
+| `find_offers` | Varer på tilbud ("-20 %", "3 for 2", "2 for 60 kr"), sortert etter rabatt, eventuelt avgrenset med søkeord |
 | `get_product` | Detaljer og pris for én vare |
 | `search_recipes` | Søk etter oppskrifter (`kylling`, `vegetar`, `taco` …) |
 | `get_recipe` | Ingredienser, fremgangsmåte og varer for et gitt antall porsjoner |

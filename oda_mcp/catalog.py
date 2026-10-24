@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+import time
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -24,6 +26,8 @@ class Product:
     unit_price: float | None
     unit: str | None
     on_offer: bool
+    offer: str | None
+    original_price: float | None
     available: bool
     url: str
 
@@ -49,15 +53,21 @@ def _float(value) -> float | None:
 
 def parse_product(p: dict) -> Product:
     availability = p.get("availability") or {}
+    discount = p.get("discount") or {}
+    on_offer = bool(discount.get("is_discounted"))
+    price = _float(p.get("gross_price")) or 0.0
+    original = _float(discount.get("undiscounted_gross_price"))
     return Product(
         id=int(p["id"]),
         name=p.get("full_name") or p.get("name") or "",
         details=p.get("name_extra") or "",
         brand=p.get("brand"),
-        price=_float(p.get("gross_price")) or 0.0,
+        price=price,
         unit_price=_float(p.get("gross_unit_price")),
         unit=p.get("unit_price_quantity_abbreviation"),
-        on_offer=bool(p.get("discount") or p.get("promotion")),
+        on_offer=on_offer,
+        offer=(p.get("promotion") or {}).get("title") if on_offer else None,
+        original_price=original if on_offer and original and original > price else None,
         available=bool(availability.get("is_available", True)),
         url=p.get("front_url") or f"{WEB_URL}{p.get('absolute_url', '')}",
     )
@@ -70,6 +80,39 @@ def search_products(query: str, page: int = 1) -> tuple[int, list[Product]]:
     total = int(request_types[0].get("count") or 0)
     products = [parse_product(i["attributes"]) for i in data.get("items", []) if i.get("type") == "product"]
     return total, products
+
+
+_offer_cache: tuple[float, list[Product]] | None = None
+OFFER_CACHE_SECONDS = 3600
+MAX_OFFER_PAGES = 30
+
+
+def all_offers() -> list[Product]:
+    """Hele Odas tilbudsliste, mellomlagret i en time."""
+    global _offer_cache
+    if _offer_cache and time.monotonic() - _offer_cache[0] < OFFER_CACHE_SECONDS:
+        return _offer_cache[1]
+    offers: dict[int, Product] = {}
+    for page in range(1, MAX_OFFER_PAGES + 1):
+        data = _get("/search/mixed/", {"q": "tilbud", "type": "product", "page": page})
+        for item in data.get("items", []):
+            if item.get("type") == "product":
+                product = parse_product(item["attributes"])
+                if product.on_offer and product.available:
+                    offers[product.id] = product
+        if not data.get("attributes", {}).get("has_more_items"):
+            break
+    _offer_cache = (time.monotonic(), list(offers.values()))
+    return _offer_cache[1]
+
+
+def find_offers(query: str | None = None) -> list[Product]:
+    """Varer på tilbud, eventuelt bare de der navnet inneholder ett av søkeordene."""
+    offers = all_offers()
+    words = [w for w in re.split(r"[\s,]+", (query or "").lower()) if w]
+    if not words:
+        return list(offers)
+    return [p for p in offers if any(w in f"{p.name} {p.details}".lower() for w in words)]
 
 
 def get_product(product_id: int) -> Product:

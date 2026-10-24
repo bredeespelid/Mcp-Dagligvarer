@@ -22,6 +22,19 @@ def test_parse_product():
     assert p.available
 
 
+def test_parse_discount():
+    p = catalog.parse_product({
+        **PRODUCT,
+        "gross_price": "34.00",
+        "discount": {"is_discounted": True, "undiscounted_gross_price": "42.50"},
+        "promotion": {"title": "-20%"},
+    })
+    assert p.on_offer and p.offer == "-20%" and p.original_price == 42.5
+
+    bargain = catalog.parse_product({**PRODUCT, "promotion": {"title": "Godt kjøp"}})
+    assert not bargain.on_offer and bargain.offer is None
+
+
 def test_cart_add_remove_persist(tmp_path):
     path = tmp_path / "cart.json"
     cart = Cart(path)
