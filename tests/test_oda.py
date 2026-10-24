@@ -68,3 +68,14 @@ def test_recipe_packages_round_up():
         r = catalog.get_recipe(1, portions=4)
     assert r["ingredients"][0]["packages"] == 2  # 0.3 × 4 = 1.2 → 2 pakker
     assert r["ingredients"][1]["packages"] == 1
+
+
+def test_estimated_saving():
+    from oda_mcp.offers import estimated_saving
+
+    assert estimated_saving({"price": 34.0, "original_price": 42.5, "offer": "-20%"}, 2) == (17.0, 2)
+    kr, n = estimated_saving({"price": 33.9, "original_price": None, "offer": "2 for 60\xa0kr"}, 1)
+    assert n == 2 and round(kr, 2) == 7.8
+    kr, n = estimated_saving({"price": 30.0, "original_price": None, "offer": "3 for 2"}, 1)
+    assert n == 3 and kr == 30.0
+    assert estimated_saving({"price": 10.0, "original_price": None, "offer": "Salg!"}, 1) == (0.0, 1)

@@ -6,15 +6,15 @@ import math
 
 from mcp.server.mcpserver import MCPServer
 
-from . import catalog
+from . import catalog, offers
 from .account import OdaAccount, OdaAccountError
 from .cart import Cart
 
 mcp = MCPServer(
     name="oda",
     instructions=(
-        "Varer, priser, tilbud og oppskrifter fra Oda (oda.com). Bruk find_offers for "
-        "tilbud, og search_products og "
+        "Varer, priser, tilbud og oppskrifter fra Oda (oda.com). Bruk dinners_from_offers "
+        "for middager basert på tilbud, find_offers for tilbud på varer, og search_products og "
         "add_to_cart for enkeltvarer, og search_recipes, get_recipe og add_recipes for "
         "måltider. Handlekurven er lokal til checkout kalles. Med send_to_oda=true "
         "overføres den til brukerens egen Oda-kurv, der levering og betaling velges i "
@@ -75,6 +75,29 @@ def find_offers(query: str | None = None, limit: int = 40) -> dict:
 def get_product(product_id: int) -> dict:
     """Hent detaljer og pris for én vare."""
     return catalog.get_product(product_id).to_dict()
+
+
+@mcp.tool()
+def dinners_from_offers(query: str = "middag", portions: int = 4, count: int = 8,
+                        exclude: list[str] | None = None) -> dict:
+    """Foreslå middager som blir billige på grunn av det som er på tilbud hos Oda nå.
+
+    Går gjennom opptil 120 oppskrifter og rangerer dem etter beregnet besparelse.
+    Retter der hovedråvaren (den dyreste ingrediensen) er på tilbud kommer først.
+    estimated_saving er det man sparer på mengdene oppskriften trenger.
+    extra_saving_if_buying_full_offers er det man i tillegg sparer ved å kjøpe hele
+    flerkjøpstilbud («2 for 64 kr», «3 for 2»). Antall pakker står i
+    packages_needed_for_offer. Oppgi begge tydelig til brukeren.
+
+    Args:
+        query: Type oppskrifter, f.eks. 'middag', 'kylling', 'fisk', 'vegetar', 'pasta'.
+        portions: Porsjoner per middag.
+        count: Antall forslag.
+        exclude: Ord som utelukker en rett, f.eks. allergier eller ting de ikke
+            spiser: ['nøtter', 'sopp', 'svin'].
+    """
+    ideas = offers.dinners_from_offers(query, portions=max(1, portions), exclude=exclude)
+    return {"count": len(ideas), "dinners": ideas[: max(1, count)]}
 
 
 @mcp.tool()
@@ -231,9 +254,10 @@ Hjelp brukeren med å planlegge og handle, i denne rekkefølgen:
    - ønsker eller retter de har lyst på, og hvor mye tid de har til matlaging
    - budsjett, og om de vil at rettene skal bygge på det som er på tilbud
    - om de har basisvarer som salt, pepper, olje og krydder hjemme
-2. Vil brukeren handle på tilbud, start med find_offers med konkrete råvarer
-   (f.eks. 'kylling', 'laks torsk', 'kjøttdeig svin biff') og søk etter oppskrifter med de nedsatte råvarene.
-   Finn ellers passende oppskrifter med search_recipes. Bruk gjerne flere søk, som
+2. Vil brukeren spare penger, bruk dinners_from_offers. Den gir middager som er
+   billige på grunn av dagens tilbud, med pris per porsjon og beregnet besparelse.
+   Bruk exclude for allergier og ting de ikke spiser, og query for type mat. Finn
+   ellers passende oppskrifter med search_recipes. Bruk gjerne flere søk, som
    «kylling», «fisk» og «vegetar», for variasjon. Foreslå én rett per måltid med
    tilberedningstid og en kort begrunnelse. La brukeren bytte ut retter, og hent nye
    forslag til de sier at menyen er god.

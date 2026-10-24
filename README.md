@@ -14,6 +14,15 @@ Si for eksempel *«jeg vil ha middag for tre dager»*. Serveren har prompten `pl
 
 I Claude Code kan prompten også startes direkte med `/mcp__oda__plan_meals`.
 
+### Middager fra tilbud
+
+*«Gi meg tre billige middager basert på det som er på tilbud»* bruker `dinners_from_offers`. Den går gjennom opptil 120 oppskrifter, og for hver ingrediens finner den den koblede Oda-varen med dagens pris og rabatt. Rettene rangeres slik:
+
+1. retter der hovedråvaren (den dyreste ingrediensen) er på tilbud, først
+2. deretter etter beregnet besparelse i kroner
+
+Besparelse som krever flerkjøp («2 for 64 kr», «3 for 2») vises for seg, siden den forutsetter at du kjøper flere pakker. Allergier og ting dere ikke spiser kan utelukkes med `exclude`.
+
 ## Verktøy
 
 | Verktøy | Beskrivelse |
@@ -21,6 +30,7 @@ I Claude Code kan prompten også startes direkte med `/mcp__oda__plan_meals`.
 | `search_products` | Søk etter varer (`query`, `page`, `only_offers`) |
 | `find_offers` | Varer på tilbud ("-20 %", "3 for 2", "2 for 60 kr"), sortert etter rabatt, eventuelt avgrenset med søkeord |
 | `get_product` | Detaljer og pris for én vare |
+| `dinners_from_offers` | Middager som blir billige på grunn av dagens tilbud, rangert etter besparelse, med pris per porsjon og hvilke ingredienser som er på tilbud |
 | `search_recipes` | Søk etter oppskrifter (`kylling`, `vegetar`, `taco` …) |
 | `get_recipe` | Ingredienser, fremgangsmåte og varer for et gitt antall porsjoner |
 | `add_recipes` | Legg varene til én eller flere oppskrifter i kurven |
