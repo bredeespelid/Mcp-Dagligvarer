@@ -1,0 +1,17 @@
+[project]
+name = "oda-mcp"
+version = "0.1.0"
+description = "MCP-server for å planlegge måltider og handle varer hos Oda"
+requires-python = ">=3.10"
+dependencies = ["mcp>=2.3,<3", "uvicorn>=0.30"]
+
+[project.scripts]
+oda-mcp = "oda_mcp.server:main"
+oda-mcp-http = "oda_mcp.http:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["oda_mcp"]

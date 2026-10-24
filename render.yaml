@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: oda-mcp
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install .
+    startCommand: oda-mcp-http
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: MCP_AUTH_TOKEN
+        generateValue: true
+      - key: ODA_CART_FILE
+        value: /tmp/oda-cart.json
+      - key: ODA_EMAIL
+        sync: false
+      - key: ODA_PASSWORD
+        sync: false
